@@ -1,6 +1,7 @@
 package wikipage
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"os"
@@ -20,7 +21,7 @@ const (
 func TestUnit(t *testing.T) {
 	pageID, title := uint32(12), "Anarchism"
 	rh := New("en")
-	p, err := rh.From(pageID)
+	p, err := rh.From(context.Background(), pageID)
 	switch {
 	case err != nil:
 		t.Error("New returns ", err)
@@ -30,7 +31,7 @@ func TestUnit(t *testing.T) {
 		t.Error("New returns info for", p.ID, "expected", title, "got", p.Title)
 	}
 	pageID = uint32(0)
-	p, err = rh.From(pageID)
+	p, err = rh.From(context.Background(), pageID)
 	_, ok := NotFound(err)
 	switch {
 	case err == nil:
@@ -48,7 +49,7 @@ func TestFrom(t *testing.T) {
 			defer func() {
 				donePageID <- pageID
 			}()
-			wikipage, err := rh.From(pageID)
+			wikipage, err := rh.From(context.Background(), pageID)
 			wikipageCheck, ok := generatePage(pageID)
 			switch {
 			case err != nil && ok:

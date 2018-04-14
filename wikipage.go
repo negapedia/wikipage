@@ -39,8 +39,8 @@ type RequestHandler struct {
 	isSleeping      chan struct{}
 }
 
-// FromContext returns a WikiPage from an article ID. It's safe to use concurrently. Warning: in the worst case if there are problems with the Wikipedia API it can block for more than one hour. As such it's advised to setup a timeout with the context.
-func (rh RequestHandler) FromContext(ctx context.Context, pageID uint32) (p WikiPage, err error) {
+// From returns a WikiPage from an article ID. It's safe to use concurrently. Warning: in the worst case if there are problems with the Wikipedia API it can block for more than one hour. As such it's advised to setup a timeout with the context.
+func (rh RequestHandler) From(ctx context.Context, pageID uint32) (p WikiPage, err error) {
 	requests := rh.requests
 	chresult := make(chan result, 1)
 	uninitErr := errors.New("Error uninitialized")
@@ -56,12 +56,6 @@ func (rh RequestHandler) FromContext(ctx context.Context, pageID uint32) (p Wiki
 			err = errors.Wrap(ctx.Err(), "Wikipage: the request was terminated prematurely")
 		}
 	}
-	return
-}
-
-//From returns a WikiPage from an article ID. It's safe to use concurrently. Warning: in the worst case if there are problems with the Wikipedia API it can block for more than one hour.
-func (rh RequestHandler) From(pageID uint32) (p WikiPage, err error) {
-	p, err = rh.FromContext(context.Background(), pageID)
 	return
 }
 
