@@ -131,13 +131,6 @@ func IDsFrom(s string) (IDs []uint32) {
 	return
 }
 
-func generateTestPage(pageID uint32) (wp WikiPage, ok bool) {
-	if pageID%7 != 0 {
-		return
-	}
-	return WikiPage{pageID, stringFrom(int(pageID) / 10), stringFrom(int(pageID))}, true
-}
-
 func generatePage(pageID uint32) (wp WikiPage, ok bool) {
 	if pageID%7 == 0 {
 		return

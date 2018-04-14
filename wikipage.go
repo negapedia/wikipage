@@ -53,7 +53,7 @@ func (rh RequestHandler) FromContext(ctx context.Context, pageID uint32) (p Wiki
 		case result := <-chresult:
 			p, err = result.Page, result.Err
 		case <-ctx.Done():
-			err = errors.Errorf("Wikipage: the request was terminated prematurely", ctx.Err())
+			err = errors.Wrap(ctx.Err(), "Wikipage: the request was terminated prematurely")
 		}
 	}
 	return
