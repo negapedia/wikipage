@@ -24,7 +24,8 @@ type WikiPage struct {
 // New creates a new RequestHandler.
 func New(lang string) (rh RequestHandler) {
 	rh = RequestHandler{
-		lang, "https://%v.wikipedia.org/w/api.php?action=query&prop=extracts&exlimit=%v&exintro=&explaintext=&exchars=512&format=json&formatversion=2&pageids=%v",
+		lang,
+		"https://%v.wikipedia.org/w/api.php?action=query&prop=extracts&exlimit=%v&exintro=&explaintext=&exchars=512&format=json&formatversion=2&pageids=%v",
 		make(chan request, exlimit*10),
 		make(chan struct{}, 1),
 	}
