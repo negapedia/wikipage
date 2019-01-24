@@ -106,7 +106,7 @@ func (rh RequestHandler) wakeUp() {
 			}
 			requests = append(requests, r)
 		}
-		rh.handle(requests)
+		go rh.handle(requests)
 	}
 }
 
