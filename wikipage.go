@@ -23,7 +23,7 @@ type WikiPage struct {
 
 // New creates a new RequestHandler.
 func New(lang string) (rh RequestHandler) {
-	queryBase := "https://%v.wikipedia.org/w/api.php?action=query&prop=extracts&exlimit=%v&exintro=&explaintext=&exchars=512&format=json&formatversion=2&pageids=%v"
+	queryBase := "https://%v.wikipedia.org/w/api.php?action=query&prop=extracts&exlimit=20&exintro=&explaintext=&exchars=512&format=json&formatversion=2&pageids=%v"
 
 	//Languages that doesn't support extracts API
 	isUnsupported := map[string]bool{"zh": true}
@@ -81,6 +81,8 @@ type result struct {
 func (rh RequestHandler) flakeOut() {
 	rh.isSleeping <- struct{}{}
 }
+
+const exlimit = 20
 
 func (rh RequestHandler) wakeUp() {
 	defer rh.flakeOut()
@@ -174,14 +176,12 @@ func queryPages(query string) (pageID2Page map[uint32]WikiPage, err error) {
 	return
 }
 
-const exlimit = 20
-
 func queryFrom(base string, pageIDs []uint32, lang string) (query string) {
 	stringIds := make([]string, len(pageIDs))
 	for i, pageID := range pageIDs {
 		stringIds[i] = fmt.Sprint(pageID)
 	}
-	return fmt.Sprintf(base, lang, exlimit, url.QueryEscape(strings.Join(stringIds, "|")))
+	return fmt.Sprintf(base, lang, url.QueryEscape(strings.Join(stringIds, "|")))
 }
 
 type pagesData struct {
