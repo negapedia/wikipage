@@ -23,9 +23,17 @@ type WikiPage struct {
 
 // New creates a new RequestHandler.
 func New(lang string) (rh RequestHandler) {
+	queryBase := "https://%v.wikipedia.org/w/api.php?action=query&prop=extracts&exlimit=%v&exintro=&explaintext=&exchars=512&format=json&formatversion=2&pageids=%v"
+
+	//Languages that doesn't support extracts API
+	isUnsupported := map[string]bool{"zh": true}
+	if isUnsupported[lang] {
+		queryBase = "https://%v.wikipedia.org/w/api.php?action=query&format=json&formatversion=2&pageids=%v"
+	}
+
 	rh = RequestHandler{
 		lang,
-		"https://%v.wikipedia.org/w/api.php?action=query&prop=extracts&exlimit=%v&exintro=&explaintext=&exchars=512&format=json&formatversion=2&pageids=%v",
+		queryBase,
 		make(chan request, exlimit*10),
 		make(chan struct{}, 1),
 	}
