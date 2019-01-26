@@ -42,7 +42,7 @@ func TestUnit(t *testing.T) {
 }
 func TestFrom(t *testing.T) {
 	rh := New("en")
-	rh.queryBase = "http://" + address + "?lang=%v&limit=%v&pageids=%v"
+	rh.queryBase = "http://" + address + "?lang=%v&pageids=%v"
 	donePageID := make(chan uint32)
 	for pageID := uint32(0); pageID < N; pageID++ {
 		go func(pageID uint32) {

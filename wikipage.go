@@ -88,9 +88,9 @@ func (rh RequestHandler) wakeUp() {
 	defer rh.flakeOut()
 	timer, alreadyReadFromTimer := time.NewTimer(0), false
 
-	requests := make([]request, 1, exlimit)
-	for expLen := len(requests); expLen > 0; expLen = (7*expLen + 9*len(requests) + 8) / 16 { //adaptation of expected length
-		requests = requests[:0]
+	expLen := 1
+	for expLen > 0 { //adaptation of expected length
+		requests := make([]request, 0, exlimit)
 		if !timer.Stop() && !alreadyReadFromTimer { //Reset timer
 			<-timer.C
 		}
@@ -116,6 +116,7 @@ func (rh RequestHandler) wakeUp() {
 			}
 			requests = append(requests, r)
 		}
+		expLen = (7*expLen + 9*len(requests) + 8) / 16
 		go rh.handle(requests)
 	}
 }
