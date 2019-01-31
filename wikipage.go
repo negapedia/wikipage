@@ -25,12 +25,6 @@ type WikiPage struct {
 func New(lang string) (rh RequestHandler) {
 	queryBase := "https://%v.wikipedia.org/w/api.php?action=query&prop=extracts&exlimit=20&exintro=&explaintext=&exchars=512&format=json&formatversion=2&pageids=%v"
 
-	//Languages that doesn't support extracts API
-	isUnsupported := map[string]bool{"el": true}
-	if isUnsupported[lang] {
-		queryBase = "https://%v.wikipedia.org/w/api.php?action=query&format=json&formatversion=2&pageids=%v"
-	}
-
 	rh = RequestHandler{
 		lang,
 		queryBase,
