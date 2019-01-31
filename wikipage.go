@@ -111,7 +111,7 @@ func (rh RequestHandler) wakeUp() {
 			requests = append(requests, r)
 		}
 		expLen = (7*expLen + 9*len(requests) + 8) / 16
-		go rh.handle(requests)
+		rh.handle(requests)
 	}
 }
 
