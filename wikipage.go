@@ -181,7 +181,6 @@ func queryFrom(base string, pageIDs []uint32, lang string) (query string) {
 
 type pagesData struct {
 	Batchcomplete interface{}
-	Warnings      interface{}
 	Query         struct {
 		Pages []mayMissingPage
 	}
@@ -213,10 +212,6 @@ func pagesDataFrom(query string) (pd pagesData, err error) {
 
 	if pd.Batchcomplete == nil {
 		return fail(errors.Errorf("Wikipage: incomplete batch with the following query: %v", query))
-	}
-
-	if pd.Warnings != nil {
-		return fail(errors.Errorf("Wikipage: warnings - %v - with the following query: %v", pd.Warnings, query))
 	}
 
 	return
