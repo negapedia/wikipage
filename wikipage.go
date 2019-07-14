@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -21,19 +22,25 @@ type WikiPage struct {
 	Abstract string `json:"Extract"`
 }
 
-// New creates a new RequestHandler.
+// New loads or creates a RequestHandler for the specified language.
 func New(lang string) (rh RequestHandler) {
 	queryBase := "https://%v.wikipedia.org/w/api.php?action=query&prop=extracts&exlimit=20&exintro=&explaintext=&exchars=512&format=json&formatversion=2&pageids=%v"
 
-	rh = RequestHandler{
+	newHandler := RequestHandler{
 		lang,
 		queryBase,
 		make(chan request, exlimit*10),
 		make(chan struct{}, 1),
 	}
-	rh.flakeOut()
-	return
+	newHandler.flakeOut()
+
+	untypedHandler, _ := lang2RequestHandler.LoadOrStore(lang, newHandler)
+
+	return untypedHandler.(RequestHandler)
 }
+
+//lang2RequestHandler represents RequestHandler cache by language
+var lang2RequestHandler sync.Map
 
 // RequestHandler is a hub from which is possible to retrieve informations about Wikipedia articles.
 type RequestHandler struct {
