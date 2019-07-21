@@ -118,7 +118,13 @@ func (rh RequestHandler) wakeUp() {
 			requests = append(requests, r)
 		}
 		expLen = (7*expLen + 9*len(requests) + 8) / 16
-		rh.handle(requests)
+
+		//If running at full capacity, use a goroutine to handle the request
+		if len(requests) == exlimit {
+			go rh.handle(requests)
+		} else {
+			rh.handle(requests)
+		}
 	}
 }
 
