@@ -1,17 +1,12 @@
+dist: trusty
+
 language: go
-
-go:
-  - 1.13
-  - master
-
-notifications:
-  email: false
 
 addons:
   sonarcloud:
     organization: "negapedia"
     token:
-      secure: "5bc4e215cd8c7f8dd81bfddd858fc41756abb379"
+      secure: "Z0DpNwSEfj8WNTa8DS2WyYMJVm+yfD9FMcwTBV01yYeh6AtQ04yWGxNVS+boMEP5LuIClOlM0kjXmUozlj8+1HLZEkx5HC30RFEbB7uFRfCF8fEJxn0K/6RcOkSZDlizMHVFakQigRIkbTPTBytWCfoNEjEWtF78aJ8rLzCCC0PzvAqAuMOGo6Qeou0Tw9Dk1Cq4Bz23jiIjcqt/UBSn5zzJzVwMAm2LKkUpQIeQdD9AGFhKLabN7QFfxw/UK4JnP63pSwny5+RxcWFsPq768RBd85iTcVlyW9wX8cvou7di9FIUCR91afrqKGNNgUBeoC5nPjVUXxkYIkw8B/7FR7gtzMuIpR2Pooc8wsyJklpy1v+NuE1ssfX+dTraQ9h9mg8RjcBy735hHIVMi9+f7E0N+igL35KHsVJEVL82c6Qzj18nMOSUvK9hk7NGWn3gmneupRXY2VcecTO2/oSG/yXmUb5PyGu7mXECn192lnrb8hhA2SL/+ruJZbCQXufTD4nAuRZx/c86WeQdNWkfjLKmI0ZOjDS/a4kIlQM5NQECZBlWRt/v5mbP9ab82sur2zvxZ4QIDbg+fdLVEe7evMXERLfA35yvIfVFJgQmMxgBWsNCOdcmvn6PJLpLdVNBNIfmlNnQCFZlv+mbZa4jLeapQ3ALmt4z0ue0NJaS2WA="
 
 script:
   - go test -race ./... -coverprofile=coverage.out
