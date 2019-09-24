@@ -17,4 +17,4 @@ addons:
 
 script:
   - go test -race ./... -coverprofile=coverage.out
-  - sonar-scanner
+  - sonar-scanner sonar.projectKey=negapedia_wikipage -Dsonar.projectName=wikipage -Dsonar.projectVersion=1.0 -Dsonar.sources=. -Dsonar.tests=. -Dsonar.test.inclusions=**/*_test.go -Dsonar.go.coverage.reportPaths=coverage.out
