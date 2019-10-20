@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"strings"
@@ -172,13 +173,13 @@ func NotFound(err error) (pageID uint32, ok bool) {
 
 func queryPages(query string) (pageID2Page map[uint32]WikiPage, err error) {
 	var pd pagesData
-	for t := time.Second; t < time.Hour; t *= 2 { //exponential backoff
+	for t := time.Second; t < time.Hour; t *= 2 { //Exponential backoff
 		pd, err = pagesDataFrom(query)
 		if err == nil {
 			pageID2Page = assignmentFrom(pd.Query.Pages)
 			break
 		}
-		time.Sleep(t)
+		time.Sleep(time.Duration(rand.Int63n(int64(t))))
 	}
 
 	return
