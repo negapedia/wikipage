@@ -6,8 +6,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -39,6 +41,9 @@ func New(lang string) (rh RequestHandler) {
 	return untypedHandler.(RequestHandler)
 }
 
+//Logger is used to log abnormal events while using wikipeadia extracts API.
+var Logger = log.New(os.Stderr, "Wikipage", log.LstdFlags)
+
 //lang2RequestHandler represents RequestHandler cache by language
 var lang2RequestHandler sync.Map
 
@@ -63,7 +68,7 @@ func (rh RequestHandler) From(ctx context.Context, pageID uint32) (p WikiPage, e
 		case result := <-chresult:
 			p, err = result.Page, result.Err
 		case <-ctx.Done():
-			err = errors.Wrap(ctx.Err(), "Wikipage: the request was terminated prematurely")
+			err = errors.Wrap(ctx.Err(), "the request was terminated prematurely")
 		}
 	}
 	return
@@ -153,7 +158,7 @@ type pageNotFound struct {
 }
 
 func (err pageNotFound) Error() string {
-	return fmt.Sprintf("Wikipage: Page %v wasn't found", err.pageID)
+	return fmt.Sprintf("Page %v wasn't found", err.pageID)
 }
 
 // NotFound checks if current error was issued by a page not found, if so it returns page ID and sets "ok" true, otherwise "ok" is false.
@@ -167,11 +172,15 @@ func NotFound(err error) (pageID uint32, ok bool) {
 
 func queryPages(query string) (pageID2Page map[uint32]WikiPage, err error) {
 	var pd pagesData
-	for t := time.Second; t < time.Hour; t *= 2 { //Exponential backoff
+	for t := time.Second; t < 48*time.Hour; t *= 2 { //Exponential backoff
 		pd, err = pagesDataFrom(query)
 		if err == nil {
 			pageID2Page = assignmentFrom(pd.Query.Pages)
 			break
+		}
+		if t > time.Hour {
+			Logger.Println("While querying wikipedia API, occurred", err)
+			Logger.Println("Next retry in", t)
 		}
 		time.Sleep(t)
 	}
@@ -198,7 +207,7 @@ var client = &http.Client{Timeout: time.Minute}
 
 func pagesDataFrom(query string) (pd pagesData, err error) {
 	fail := func(e error) (pagesData, error) {
-		pd, err = pagesData{}, errors.Wrapf(e, "Wikipage: error with the following query: %v", query)
+		pd, err = pagesData{}, errors.Wrapf(e, "error with the following query: %v", query)
 		return pd, err
 	}
 
@@ -219,7 +228,7 @@ func pagesDataFrom(query string) (pd pagesData, err error) {
 	}
 
 	if pd.Batchcomplete == nil {
-		return fail(errors.Errorf("Wikipage: incomplete batch with the following query: %v", query))
+		return fail(errors.Errorf("incomplete batch with the following query: %v", query))
 	}
 
 	return
