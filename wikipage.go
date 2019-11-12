@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"math/rand"
 	"net/http"
 	"net/url"
 	"strings"
@@ -174,7 +173,7 @@ func queryPages(query string) (pageID2Page map[uint32]WikiPage, err error) {
 			pageID2Page = assignmentFrom(pd.Query.Pages)
 			break
 		}
-		time.Sleep(time.Duration(rand.Int63n(int64(t))))
+		time.Sleep(t)
 	}
 
 	return
