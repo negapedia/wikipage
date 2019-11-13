@@ -174,19 +174,29 @@ func queryPages(query string) (pageID2Page map[uint32]WikiPage, err error) {
 	var pd pagesData
 	for t := time.Second; t < 48*time.Hour; t *= 2 { //Exponential backoff
 		pd, err = pagesDataFrom(query)
-		if err == nil {
+		switch {
+		case err == nil:
 			pageID2Page = assignmentFrom(pd.Query.Pages)
-			break
-		}
-		if t > time.Hour {
+			return
+		case t < time.Minute:
+			//go on
+		case t < time.Hour:
+			client.CloseIdleConnections() //Soft client connection reset
+		default:
 			Logger.Println("While querying wikipedia API, occurred", err)
 			Logger.Println("Next retry in", t)
+
+			//Hard client reset
+			client.CloseIdleConnections()
+			client = &http.Client{Timeout: time.Minute}
 		}
 		time.Sleep(t)
 	}
 
 	return
 }
+
+var client = &http.Client{Timeout: time.Minute}
 
 func queryFrom(base string, pageIDs []uint32, lang string) (query string) {
 	stringIds := make([]string, len(pageIDs))
@@ -202,8 +212,6 @@ type pagesData struct {
 		Pages []mayMissingPage
 	}
 }
-
-var client = &http.Client{Timeout: time.Minute}
 
 func pagesDataFrom(query string) (pd pagesData, err error) {
 	fail := func(e error) (pagesData, error) {
