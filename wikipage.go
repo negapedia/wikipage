@@ -172,11 +172,13 @@ func NotFound(err error) (pageID uint32, ok bool) {
 
 func queryPages(query string) (pageID2Page map[uint32]WikiPage, err error) {
 	var pd pagesData
+
 	for t := time.Second; t < 48*time.Hour; t *= 2 { //Exponential backoff
 		pd, err = pagesDataFrom(query)
+		pageID2Page = assignmentFrom(pd.Query.Pages)
+
 		switch {
 		case err == nil:
-			pageID2Page = assignmentFrom(pd.Query.Pages)
 			return
 		case t < time.Minute:
 			//go on
@@ -190,9 +192,12 @@ func queryPages(query string) (pageID2Page map[uint32]WikiPage, err error) {
 			client.CloseIdleConnections()
 			client = &http.Client{Timeout: time.Minute}
 		}
+
 		time.Sleep(t)
 	}
 
+	pd, err = pagesDataFrom(query)
+	pageID2Page = assignmentFrom(pd.Query.Pages)
 	return
 }
 
