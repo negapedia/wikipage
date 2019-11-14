@@ -190,7 +190,7 @@ func queryPages(query string) (pageID2Page map[uint32]WikiPage, err error) {
 
 			//Hard client reset
 			client.CloseIdleConnections()
-			client = &http.Client{Timeout: time.Minute}
+			client = &http.Client{Timeout: 10 * time.Second}
 		}
 
 		time.Sleep(t)
@@ -201,7 +201,7 @@ func queryPages(query string) (pageID2Page map[uint32]WikiPage, err error) {
 	return
 }
 
-var client = &http.Client{Timeout: time.Minute}
+var client = &http.Client{Timeout: 10 * time.Second}
 
 func queryFrom(base string, pageIDs []uint32, lang string) (query string) {
 	stringIds := make([]string, len(pageIDs))
