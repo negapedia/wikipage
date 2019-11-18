@@ -3,6 +3,7 @@ package wikipage
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
 	"strconv"
@@ -21,7 +22,7 @@ const (
 func TestUnit(t *testing.T) {
 	pageID, title := uint32(12), "Anarchism"
 	rh := New("en")
-	p, err := rh.From(context.Background(), pageID)
+	p, err := rh.From(context.Background(), title)
 	switch {
 	case err != nil:
 		t.Error("New returns ", err)
@@ -30,8 +31,7 @@ func TestUnit(t *testing.T) {
 	case p.Title != title:
 		t.Error("New returns info for", p.ID, "expected", title, "got", p.Title)
 	}
-	pageID = uint32(0)
-	p, err = rh.From(context.Background(), pageID)
+	p, err = rh.From(context.Background(), "0test1test2test3")
 	_, ok := NotFound(err)
 	switch {
 	case err == nil:
@@ -49,14 +49,14 @@ func TestFrom(t *testing.T) {
 			defer func() {
 				donePageID <- pageID
 			}()
-			wikipage, err := rh.From(context.Background(), pageID)
+			wikipage, err := rh.From(context.Background(), fmt.Sprint(pageID))
 			wikipageCheck, ok := generatePage(pageID)
 			switch {
 			case err != nil && ok:
 				t.Error("For", pageID, "expected", wikipageCheck, "got", err.Error())
 			case err != nil: // && !ok:
 				if _, IsNotFoundErr := NotFound(err); !IsNotFoundErr {
-					t.Error("For", pageID, "expected", pageNotFound{pageID}.Error(), "got", err.Error())
+					t.Error("For", pageID, "expected", pageNotFound{fmt.Sprint(pageID)}.Error(), "got", err.Error())
 				}
 			default:
 				if wikipage != wikipageCheck {
@@ -87,27 +87,16 @@ const address = ":8080"
 
 func TestMain(m *testing.M) {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		sPageIDs := r.URL.Query()["pageids"]
-
-		var IDs []uint32
-		if len(sPageIDs) > 0 {
-			IDs = IDsFrom(sPageIDs[0])
+		ID, err := strconv.ParseUint(r.URL.Query()["pageids"][0], 10, 32)
+		if err != nil {
+			panic(err)
 		}
 
-		pp := []mayMissingPage{}
-		for _, ID := range IDs {
-			p, ok := generatePage(ID)
-			p.ID = ID
-			pp = append(pp, mayMissingPage{p, !ok})
+		p, ok := generatePage(uint32(ID))
+		response := typedPage{Type: "standard", WikiPage: p}
+		if !ok {
+			response.Type = "https://mediawiki.org/wiki/HyperSwitch/errors/not_found"
 		}
-
-		response := struct {
-			Batchcomplete bool
-			Query         struct {
-				Pages []mayMissingPage
-			}
-		}{Batchcomplete: true}
-		response.Query.Pages = pp
 
 		if err := json.NewEncoder(w).Encode(response); err != nil {
 			panic(err)
@@ -121,15 +110,6 @@ func TestMain(m *testing.M) {
 	}()
 
 	os.Exit(m.Run())
-}
-
-func IDsFrom(s string) (IDs []uint32) {
-	for _, sID := range strings.Split(s, "|") {
-		if ID, err := strconv.ParseUint(sID, 10, 32); err == nil {
-			IDs = append(IDs, uint32(ID))
-		}
-	}
-	return
 }
 
 func generatePage(pageID uint32) (wp WikiPage, ok bool) {
