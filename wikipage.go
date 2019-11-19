@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 
 	"golang.org/x/time/rate"
@@ -45,7 +46,7 @@ type RequestHandler struct {
 
 // From returns a WikiPage from an article Title. It's safe to use concurrently. Warning: in the worst case if there are problems with the Wikipedia API it can block for more than 48 hours. As such it's advised to setup a timeout with the context.
 func (rh RequestHandler) From(ctx context.Context, title string) (p WikiPage, err error) {
-	query := fmt.Sprintf(rh.queryBase, rh.lang, url.PathEscape(title))
+	query := fmt.Sprintf(rh.queryBase, rh.lang, url.PathEscape(underscoreRule.Replace(title)))
 
 	typedPage, err := stubbornPageFrom(ctx, query)
 	switch {
@@ -60,8 +61,10 @@ func (rh RequestHandler) From(ctx context.Context, title string) (p WikiPage, er
 	return
 }
 
+var underscoreRule = strings.NewReplacer(" ", "_")
+
 func stubbornPageFrom(ctx context.Context, query string) (p typedPage, err error) {
-	for t := 100 * time.Millisecond; t < 48*time.Hour; t *= 2 { //Exponential backoff
+	for t := 250 * time.Millisecond; t < 48*time.Hour; t *= 2 { //Exponential backoff
 		p, err = pageFrom(ctx, query)
 		switch {
 		case err == nil:
@@ -70,7 +73,7 @@ func stubbornPageFrom(ctx context.Context, query string) (p typedPage, err error
 			//go on
 		case t > time.Hour:
 			Logger.Println("While querying wikipedia API, occurred", err)
-			Logger.Println("Next retry in", t)
+			Logger.Println("Next retry within", t)
 			fallthrough
 		default:
 			client.CloseIdleConnections() //Soft client connection reset
@@ -84,7 +87,7 @@ func stubbornPageFrom(ctx context.Context, query string) (p typedPage, err error
 }
 
 var client = &http.Client{Timeout: 10 * time.Second}
-var limiter = rate.NewLimiter(200, 20)
+var limiter = rate.NewLimiter(150, 1)
 
 func pageFrom(ctx context.Context, query string) (p typedPage, err error) {
 	fail := func(e error) (typedPage, error) {
@@ -96,10 +99,10 @@ func pageFrom(ctx context.Context, query string) (p typedPage, err error) {
 	if err != nil {
 		return fail(err)
 	}
-	//Set User-Agent as per wikipedia API rules https://en.wikipedia.org/api/rest_v1/#/Page%20content
+	//Set User-Agent as per wikipedia API rules https://en.wikipedia.org/api/rest_v1/#/Page_content
 	request.Header.Set("User-Agent", "[https://github.com/negapedia/wikipage]")
 
-	//Respect rate limiter as per wikipedia API rules https://en.wikipedia.org/api/rest_v1/#/Page%20content
+	//Respect rate limiter as per wikipedia API rules https://en.wikipedia.org/api/rest_v1/#/Page_content
 	err = limiter.Wait(ctx)
 	if err != nil {
 		return fail(err)
