@@ -49,11 +49,13 @@ func (rh RequestHandler) From(ctx context.Context, title string) (p WikiPage, er
 	query := fmt.Sprintf(rh.queryBase, rh.lang, url.PathEscape(underscoreRule.Replace(title)))
 
 	typedPage, err := stubbornPageFrom(ctx, query)
+
 	switch {
-	case err != nil:
-		return
-	case typedPage.Type == "https://mediawiki.org/wiki/HyperSwitch/errors/not_found":
+	case err == nil && typedPage.Type == "https://mediawiki.org/wiki/HyperSwitch/errors/not_found":
 		err = errors.WithStack(pageNotFound{typedPage.Title})
+		fallthrough
+	case err != nil:
+		Logger.Println("Final ", err)
 	default:
 		p = typedPage.WikiPage
 	}
@@ -64,7 +66,7 @@ func (rh RequestHandler) From(ctx context.Context, title string) (p WikiPage, er
 var underscoreRule = strings.NewReplacer(" ", "_")
 
 func stubbornPageFrom(ctx context.Context, query string) (p typedPage, err error) {
-	for t := 250 * time.Millisecond; t < 48*time.Hour; t *= 2 { //Exponential backoff
+	for t := 250 * time.Millisecond; ctx.Err() == nil && t < 48*time.Hour; t *= 2 { //Exponential backoff
 		p, err = pageFrom(ctx, query)
 		switch {
 		case err == nil:
@@ -72,14 +74,16 @@ func stubbornPageFrom(ctx context.Context, query string) (p typedPage, err error
 		case t < time.Minute:
 			//go on
 		case t > time.Hour:
-			Logger.Println("While querying wikipedia API, occurred", err)
-			Logger.Println("Next retry within", t)
+			Logger.Println("While querying wikipedia API, occurred", err, "Next retry within", t)
 			fallthrough
 		default:
 			client.CloseIdleConnections() //Soft client connection reset
 		}
 
-		time.Sleep(time.Duration(rand.Int63n(int64(t))))
+		//Sleep of max lenght t, cancellable by outer context ctx
+		timeoutCtx, cancel := context.WithTimeout(ctx, time.Duration(rand.Int63n(int64(t))))
+		<-timeoutCtx.Done()
+		cancel()
 	}
 
 	p, err = pageFrom(ctx, query)
