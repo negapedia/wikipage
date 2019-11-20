@@ -55,7 +55,7 @@ func (rh RequestHandler) From(ctx context.Context, title string) (p WikiPage, er
 		err = errors.WithStack(pageNotFound{typedPage.Title})
 		fallthrough
 	case err != nil:
-		Logger.Println("Final ", err)
+		Logger.Println("Fatal", err)
 	default:
 		p = typedPage.WikiPage
 	}
@@ -74,7 +74,7 @@ func stubbornPageFrom(ctx context.Context, query string) (p typedPage, err error
 		case t < time.Minute:
 			//go on
 		case t > time.Hour:
-			Logger.Println("While querying wikipedia API, occurred", err, "Next retry within", t)
+			Logger.Println("While querying wikipedia API, occurred", err, "- Next retry within", t)
 			fallthrough
 		default:
 			client.CloseIdleConnections() //Soft client connection reset
