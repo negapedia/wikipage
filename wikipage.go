@@ -41,14 +41,34 @@ var Logger = log.New(os.Stderr, "Wikipage", log.LstdFlags)
 
 // RequestHandler is a hub from which is possible to retrieve informations about Wikipedia articles.
 type RequestHandler struct {
-	lang, queryBase string
+	lang      string
+	queryBase string
 }
 
 // From returns a WikiPage from an article Title. It's safe to use concurrently. Warning: in the worst case if there are problems with the Wikipedia API it can block for more than 48 hours. As such it's advised to setup a timeout with the context.
 func (rh RequestHandler) From(ctx context.Context, title string) (p WikiPage, err error) {
-	query := fmt.Sprintf(rh.queryBase, rh.lang, url.PathEscape(underscoreRule.Replace(title)))
+	title = underscoreRule.Replace(title)
+	query := fmt.Sprintf(rh.queryBase, rh.lang, url.PathEscape(title))
 
-	extPage, err := stubbornPageFrom(ctx, query)
+	extPage, err := pageFrom(ctx, query)
+	for t := 250 * time.Millisecond; err != nil && ctx.Err() == nil && t < 48*time.Hour; t *= 2 { //Exponential backoff
+		switch {
+		case t < time.Minute:
+			//go on
+		case t > time.Hour:
+			Logger.Println("While querying wikipedia API, occurred", err, "- Next retry within", t)
+			fallthrough
+		default:
+			client.CloseIdleConnections() //Soft client connection reset
+		}
+
+		//Sleep of max lenght t, cancellable by outer context ctx
+		timeoutCtx, cancel := context.WithTimeout(ctx, time.Duration(rand.Int63n(int64(t))))
+		<-timeoutCtx.Done()
+		cancel()
+
+		extPage, err = pageFrom(ctx, query)
+	}
 
 	switch {
 	case err == nil && extPage.Missing:
@@ -64,32 +84,6 @@ func (rh RequestHandler) From(ctx context.Context, title string) (p WikiPage, er
 }
 
 var underscoreRule = strings.NewReplacer(" ", "_")
-
-func stubbornPageFrom(ctx context.Context, query string) (p extPage, err error) {
-	for t := 250 * time.Millisecond; ctx.Err() == nil && t < 48*time.Hour; t *= 2 { //Exponential backoff
-		p, err = pageFrom(ctx, query)
-		switch {
-		case err == nil:
-			return
-		case t < time.Minute:
-			//go on
-		case t > time.Hour:
-			Logger.Println("While querying wikipedia API, occurred", err, "- Next retry within", t)
-			fallthrough
-		default:
-			client.CloseIdleConnections() //Soft client connection reset
-		}
-
-		//Sleep of max lenght t, cancellable by outer context ctx
-		timeoutCtx, cancel := context.WithTimeout(ctx, time.Duration(rand.Int63n(int64(t))))
-		<-timeoutCtx.Done()
-		cancel()
-	}
-
-	p, err = pageFrom(ctx, query)
-	return
-}
-
 var client = &http.Client{Timeout: 10 * time.Second}
 var limiter = rate.NewLimiter(150, 1)
 
