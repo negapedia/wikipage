@@ -48,16 +48,16 @@ type RequestHandler struct {
 func (rh RequestHandler) From(ctx context.Context, title string) (p WikiPage, err error) {
 	query := fmt.Sprintf(rh.queryBase, rh.lang, url.PathEscape(underscoreRule.Replace(title)))
 
-	typedPage, err := stubbornPageFrom(ctx, query)
+	extPage, err := stubbornPageFrom(ctx, query)
 
 	switch {
-	case err == nil && typedPage.Type == "https://mediawiki.org/wiki/HyperSwitch/errors/not_found":
-		err = errors.WithStack(pageNotFound{typedPage.Title})
+	case err == nil && extPage.Missing:
+		err = errors.WithStack(pageNotFound{extPage.Title})
 		fallthrough
 	case err != nil:
 		Logger.Println("Fatal", err)
 	default:
-		p = typedPage.WikiPage
+		p = extPage.WikiPage
 	}
 
 	return
@@ -65,7 +65,7 @@ func (rh RequestHandler) From(ctx context.Context, title string) (p WikiPage, er
 
 var underscoreRule = strings.NewReplacer(" ", "_")
 
-func stubbornPageFrom(ctx context.Context, query string) (p typedPage, err error) {
+func stubbornPageFrom(ctx context.Context, query string) (p extPage, err error) {
 	for t := 250 * time.Millisecond; ctx.Err() == nil && t < 48*time.Hour; t *= 2 { //Exponential backoff
 		p, err = pageFrom(ctx, query)
 		switch {
@@ -93,9 +93,9 @@ func stubbornPageFrom(ctx context.Context, query string) (p typedPage, err error
 var client = &http.Client{Timeout: 10 * time.Second}
 var limiter = rate.NewLimiter(150, 1)
 
-func pageFrom(ctx context.Context, query string) (p typedPage, err error) {
-	fail := func(e error) (typedPage, error) {
-		p, err = typedPage{}, errors.Wrapf(e, "error with the following query: %v", query)
+func pageFrom(ctx context.Context, query string) (p extPage, err error) {
+	fail := func(e error) (extPage, error) {
+		p, err = extPage{}, errors.Wrapf(e, "error with the following query: %v", query)
 		return p, err
 	}
 
@@ -128,11 +128,17 @@ func pageFrom(ctx context.Context, query string) (p typedPage, err error) {
 		return fail(err)
 	}
 
+	if p.Missing == true || p.Type == "https://mediawiki.org/wiki/HyperSwitch/errors/not_found" {
+		p.Missing = true
+		p.Type = "https://mediawiki.org/wiki/HyperSwitch/errors/not_found"
+	}
+
 	return
 }
 
-type typedPage struct {
-	Type string
+type extPage struct {
+	Type    string
+	Missing bool
 	WikiPage
 }
 

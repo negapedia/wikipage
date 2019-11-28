@@ -93,7 +93,7 @@ func TestMain(m *testing.M) {
 		}
 
 		p, ok := generatePage(uint32(ID))
-		response := typedPage{Type: "standard", WikiPage: p}
+		response := extPage{Type: "standard", WikiPage: p}
 		if !ok {
 			response.Type = "https://mediawiki.org/wiki/HyperSwitch/errors/not_found"
 		}
