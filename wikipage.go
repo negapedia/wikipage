@@ -154,11 +154,11 @@ func pageFrom(ctx context.Context, query string) (p mayMissingPage, err error) {
 	}
 
 	//Convert data to the expected format
-	if data.Type == "https://mediawiki.org/wiki/HyperSwitch/errors/not_found" {
-		data.mayMissingPage.Missing = true
-	}
 	for _, p := range data.Query.Pages {
 		*data.mayMissingPage = p
+	}
+	if data.Type == "https://mediawiki.org/wiki/HyperSwitch/errors/not_found" || data.ID == 0 {
+		data.mayMissingPage.Missing = true
 	}
 	return
 }
