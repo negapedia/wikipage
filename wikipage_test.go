@@ -43,7 +43,7 @@ func TestUnit(t *testing.T) {
 }
 func TestFrom(t *testing.T) {
 	rh := New("mytest")
-	rh.title2Query = func(title string) string {
+	rh.title2Query = func(title string, life float64) string {
 		return "http://" + address + "?pageids=" + title
 	}
 
@@ -101,9 +101,9 @@ func TestMain(m *testing.M) {
 		}
 
 		p, ok := generatePage(uint32(ID))
-		response := extPage{Type: "standard", WikiPage: p}
+		response := mayMissingPage{Missing: false, WikiPage: p}
 		if !ok {
-			response.Type = "https://mediawiki.org/wiki/HyperSwitch/errors/not_found"
+			response.Missing = true
 		}
 
 		if err := json.NewEncoder(w).Encode(response); err != nil {

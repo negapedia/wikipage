@@ -28,10 +28,10 @@ type WikiPage struct {
 
 // New loads or creates a RequestHandler for the specified language.
 func New(lang string) (rh RequestHandler) {
-	title2Query := func(title string) string {
+	title2Query := func(title string, life float64) string {
 		title = underscoreRule.Replace(title)
 		baseURL := ""
-		if rand.Intn(10) != 0 { //Default
+		if life > 0.8 { //Default
 			baseURL = "https://%v.wikipedia.org/api/rest_v1/page/summary/%v?redirect=true"
 			title = url.PathEscape(title)
 		} else { //Backup
@@ -51,12 +51,24 @@ var Logger = log.New(os.Stderr, "Wikipage", log.LstdFlags)
 
 // RequestHandler is a hub from which is possible to retrieve informations about Wikipedia articles.
 type RequestHandler struct {
-	title2Query func(title string) (query string)
+	title2Query func(title string, life float64) (query string)
 }
 
 // From returns a WikiPage from an article Title. It's safe to use concurrently. Warning: in the worst case if there are problems with the Wikipedia API it can block for more than 48 hours. As such it's advised to setup a timeout with the context.
 func (rh RequestHandler) From(ctx context.Context, title string) (p WikiPage, err error) {
-	extPage, err := pageFrom(ctx, rh.title2Query(title))
+	//Explicitly calculate query life
+	deadline, ok := ctx.Deadline()
+	if !ok {
+		deadline = time.Now().Add(2 * 48 * time.Hour)
+	}
+	maxDuration := float64(time.Now().Sub(deadline))
+	queryLife := func() float64 {
+		return float64(time.Now().Sub(deadline)) / float64(maxDuration)
+	}
+
+	//Query for page
+	mayMissingPage, err := pageFrom(ctx, rh.title2Query(title, queryLife()))
+
 	for t := 250 * time.Millisecond; err != nil && ctx.Err() == nil && t < 48*time.Hour; t *= 2 { //Exponential backoff
 		switch {
 		case t < time.Minute:
@@ -73,17 +85,18 @@ func (rh RequestHandler) From(ctx context.Context, title string) (p WikiPage, er
 		<-timeoutCtx.Done()
 		cancel()
 
-		extPage, err = pageFrom(ctx, rh.title2Query(title))
+		mayMissingPage, err = pageFrom(ctx, rh.title2Query(title, queryLife()))
 	}
 
+	//Handle errors
 	switch {
-	case err == nil && extPage.Missing:
-		err = errors.WithStack(pageNotFound{extPage.Title})
+	case err == nil && mayMissingPage.Missing:
+		err = errors.WithStack(pageNotFound{mayMissingPage.Title})
 		fallthrough
 	case err != nil:
 		Logger.Println("Fatal", err)
 	default:
-		p = extPage.WikiPage
+		p = mayMissingPage.WikiPage
 	}
 
 	return
@@ -93,9 +106,9 @@ var underscoreRule = strings.NewReplacer(" ", "_")
 var client = &http.Client{Timeout: 10 * time.Second}
 var limiter = rate.NewLimiter(150, 1)
 
-func pageFrom(ctx context.Context, query string) (p extPage, err error) {
-	fail := func(e error) (extPage, error) {
-		p, err = extPage{}, errors.Wrapf(e, "error with the following query: %v", query)
+func pageFrom(ctx context.Context, query string) (p mayMissingPage, err error) {
+	fail := func(e error) (mayMissingPage, error) {
+		p, err = mayMissingPage{}, errors.Wrapf(e, "error with the following query: %v", query)
 		return p, err
 	}
 
@@ -123,21 +136,34 @@ func pageFrom(ctx context.Context, query string) (p extPage, err error) {
 		return fail(err)
 	}
 
-	err = json.Unmarshal(body, &p)
+	//Marshalling results for two different replies for queries
+	data := struct {
+		//Rest API standard
+		Type string
+		*mayMissingPage
+
+		//Result for query API
+		Query struct {
+			Pages []mayMissingPage
+		}
+	}{mayMissingPage: &p}
+
+	err = json.Unmarshal(body, &data)
 	if err != nil {
 		return fail(err)
 	}
 
-	if p.Missing == true || p.Type == "https://mediawiki.org/wiki/HyperSwitch/errors/not_found" || p.ID == 0 {
-		p.Missing = true
-		p.Type = "https://mediawiki.org/wiki/HyperSwitch/errors/not_found"
+	//Convert data to the expected format
+	if data.Type == "https://mediawiki.org/wiki/HyperSwitch/errors/not_found" {
+		data.mayMissingPage.Missing = true
 	}
-
+	for _, p := range data.Query.Pages {
+		*data.mayMissingPage = p
+	}
 	return
 }
 
-type extPage struct {
-	Type    string
+type mayMissingPage struct {
 	Missing bool
 	WikiPage
 }
