@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"net/http"
 	"os"
 	"strconv"
@@ -87,6 +88,10 @@ const address = ":8080"
 
 func TestMain(m *testing.M) {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if rand.Intn(10) == 0 { //Add in some random errors
+			return
+		}
+
 		ID, err := strconv.ParseUint(r.URL.Query()["pageids"][0], 10, 32)
 		if err != nil {
 			panic(err)
