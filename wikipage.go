@@ -28,11 +28,21 @@ type WikiPage struct {
 
 // New loads or creates a RequestHandler for the specified language.
 func New(lang string) (rh RequestHandler) {
-	queryBase := "https://%v.wikipedia.org/api/rest_v1/page/summary/%v?redirect=true"
+	title2Query := func(title string) string {
+		title = underscoreRule.Replace(title)
+		baseURL := ""
+		if rand.Intn(10) != 0 { //Default
+			baseURL = "https://%v.wikipedia.org/api/rest_v1/page/summary/%v?redirect=true"
+			title = url.PathEscape(title)
+		} else { //Backup
+			baseURL = "https://%v.wikipedia.org/w/api.php?action=query&prop=extracts&exintro=&explaintext=&exchars=512&format=json&formatversion=2&redirects=&titles=%v"
+			title = url.QueryEscape(title)
+		}
+		return fmt.Sprintf(baseURL, lang, title)
+	}
 
 	return RequestHandler{
-		lang,
-		queryBase,
+		title2Query,
 	}
 }
 
@@ -41,16 +51,12 @@ var Logger = log.New(os.Stderr, "Wikipage", log.LstdFlags)
 
 // RequestHandler is a hub from which is possible to retrieve informations about Wikipedia articles.
 type RequestHandler struct {
-	lang      string
-	queryBase string
+	title2Query func(title string) (query string)
 }
 
 // From returns a WikiPage from an article Title. It's safe to use concurrently. Warning: in the worst case if there are problems with the Wikipedia API it can block for more than 48 hours. As such it's advised to setup a timeout with the context.
 func (rh RequestHandler) From(ctx context.Context, title string) (p WikiPage, err error) {
-	title = underscoreRule.Replace(title)
-	query := fmt.Sprintf(rh.queryBase, rh.lang, url.PathEscape(title))
-
-	extPage, err := pageFrom(ctx, query)
+	extPage, err := pageFrom(ctx, rh.title2Query(title))
 	for t := 250 * time.Millisecond; err != nil && ctx.Err() == nil && t < 48*time.Hour; t *= 2 { //Exponential backoff
 		switch {
 		case t < time.Minute:
@@ -67,7 +73,7 @@ func (rh RequestHandler) From(ctx context.Context, title string) (p WikiPage, er
 		<-timeoutCtx.Done()
 		cancel()
 
-		extPage, err = pageFrom(ctx, query)
+		extPage, err = pageFrom(ctx, rh.title2Query(title))
 	}
 
 	switch {
@@ -122,7 +128,7 @@ func pageFrom(ctx context.Context, query string) (p extPage, err error) {
 		return fail(err)
 	}
 
-	if p.Missing == true || p.Type == "https://mediawiki.org/wiki/HyperSwitch/errors/not_found" {
+	if p.Missing == true || p.Type == "https://mediawiki.org/wiki/HyperSwitch/errors/not_found" || p.ID == 0 {
 		p.Missing = true
 		p.Type = "https://mediawiki.org/wiki/HyperSwitch/errors/not_found"
 	}

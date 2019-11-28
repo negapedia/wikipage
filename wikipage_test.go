@@ -43,9 +43,12 @@ func TestUnit(t *testing.T) {
 }
 func TestFrom(t *testing.T) {
 	rh := New("mytest")
-	rh.queryBase = "http://" + address + "?lang=%v&pageids=%v"
+	rh.title2Query = func(title string) string {
+		return "http://" + address + "?pageids=" + title
+	}
+
 	donePageID := make(chan uint32)
-	for pageID := uint32(0); pageID < N; pageID++ {
+	for pageID := uint32(1); pageID < N; pageID++ {
 		go func(pageID uint32) {
 			defer func() {
 				donePageID <- pageID
@@ -70,7 +73,7 @@ func TestFrom(t *testing.T) {
 	ctime := time.After(TIMEOUT)
 	IDSet := roaring.NewBitmap()
 	IDSet.AddRange(0, N)
-	for i := 0; i < N; i++ {
+	for i := 1; i < N; i++ {
 		select {
 		case ID := <-donePageID:
 			IDSet.Remove(ID)
