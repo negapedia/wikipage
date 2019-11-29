@@ -29,13 +29,17 @@ func New(lang string) (rh RequestHandler) {
 	title2Query := func(title string, life float64) string {
 		title = underscoreRule.Replace(title)
 		baseURL := ""
-		if life > 0.75 { //Default API
-			baseURL = "https://%v.wikipedia.org/api/rest_v1/page/summary/%v?redirect=true"
-			title = url.PathEscape(title)
-		} else { //Fall back API
+
+		switch {
+		case life < 0.25: //Fall back API
+			client.CloseIdleConnections() //Soft connction reset
 			baseURL = "https://%v.wikipedia.org/w/api.php?action=query&prop=extracts&exintro=&explaintext=&exchars=512&format=json&formatversion=2&redirects=&titles=%v"
 			title = url.QueryEscape(title)
+		default: //Default API
+			baseURL = "https://%v.wikipedia.org/api/rest_v1/page/summary/%v?redirect=true"
+			title = url.PathEscape(title)
 		}
+
 		return fmt.Sprintf(baseURL, lang, title)
 	}
 
