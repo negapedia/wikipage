@@ -17,7 +17,7 @@ import (
 
 const (
 	N       = 1000
-	TIMEOUT = 10 * time.Second
+	TIMEOUT = 29 * time.Second
 )
 
 func TestUnit(t *testing.T) {
@@ -26,19 +26,42 @@ func TestUnit(t *testing.T) {
 	p, err := rh.From(context.Background(), title)
 	switch {
 	case err != nil:
-		t.Error("New returns ", err)
+		t.Error("From returns ", err)
 	case p.ID != pageID:
-		t.Error("New returns info for", p.ID, "expected for", pageID)
+		t.Error("From returns info for", p.ID, "expected", pageID)
 	case p.Title != title:
-		t.Error("New returns info for", p.ID, "expected", title, "got", p.Title)
+		t.Error("From returns info for", p.Title, "expected", title)
 	}
 	p, err = rh.From(context.Background(), "0test1test2test3")
 	_, ok := NotFound(err)
 	switch {
 	case err == nil:
-		t.Error("New should return an error, instead it returns", p)
+		t.Error("From should return an error, instead it returns", p)
 	case !ok:
-		t.Error("New returns an unexpected error", err)
+		t.Error("From returns an unexpected error", err)
+	}
+}
+
+func TestPageFrom(t *testing.T) {
+	rh := New("en")
+	ctx, cancel := context.WithTimeout(context.Background(), TIMEOUT)
+	defer cancel()
+	for _, life := range []float64{1., 0.} {
+		pageID, title := uint32(12), "Anarchism"
+		p, err := pageFrom(ctx, rh.title2Query(title, life))
+		rh.From(ctx, title)
+		switch {
+		case err != nil:
+			t.Error("pageFrom(", title, ",", life, ") returns ", err)
+		case p.ID != pageID:
+			t.Error("pageFrom(", title, ",", life, ") returns info for", p.ID, "expected", pageID)
+		case p.Title != title:
+			t.Error("ageFrom(", title, ",", life, ") returns info for", p.Title)
+		}
+		p, err = pageFrom(ctx, rh.title2Query("0test1test2test3", life))
+		if !p.Missing {
+			t.Error("pageFrom(", title, ",", life, ") returns should be flagged as missing, instead it returns", p)
+		}
 	}
 }
 func TestFrom(t *testing.T) {
@@ -53,7 +76,9 @@ func TestFrom(t *testing.T) {
 			defer func() {
 				donePageID <- pageID
 			}()
-			wikipage, err := rh.From(context.Background(), fmt.Sprint(pageID))
+			ctx, cancel := context.WithTimeout(context.Background(), TIMEOUT)
+			defer cancel()
+			wikipage, err := rh.From(ctx, fmt.Sprint(pageID))
 			wikipageCheck, ok := generatePage(pageID)
 			switch {
 			case err != nil && ok:
@@ -91,7 +116,7 @@ const address = ":8080"
 
 func TestMain(m *testing.M) {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		if rand.Intn(10) == 0 { //Add in some random errors
+		if rand.Intn(100) == 0 { //Add in some random errors
 			return
 		}
 
